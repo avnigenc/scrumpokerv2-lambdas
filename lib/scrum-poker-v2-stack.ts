@@ -45,6 +45,7 @@ export class ScrumPokerV2Stack extends cdk.Stack {
     const sessionTable = new dynamodb.Table(this, 'Sessions', {
       partitionKey: { name: 'guid', type: dynamodb.AttributeType.STRING },
     });
+    const sessions = api.root.addResource('sessions');
 
     const createSessionLambda = new NodejsFunction(this, 'create-session', {
       runtime: Runtime.NODEJS_14_X,
@@ -59,9 +60,39 @@ export class ScrumPokerV2Stack extends cdk.Stack {
     });
 
     sessionTable.grantReadWriteData(createSessionLambda);
-
-    const sessions = api.root.addResource('sessions');
     sessions.addMethod('POST', new apigateway.LambdaIntegration(createSessionLambda, { proxy: true }));
+
+    const getSessionLambda = new NodejsFunction(this, 'get-session', {
+      runtime: Runtime.NODEJS_14_X,
+      entry: `${__dirname}/../src/sessions/index.ts`,
+      handler: 'getSessionHandler',
+      bundling: {
+        minify: true,
+      },
+      environment: {
+        TABLE_NAME: sessionTable.tableName,
+      },
+    });
+
+    sessionTable.grantReadWriteData(getSessionLambda);
+    const withSessionId = sessions.addResource('{sessionId}');
+    withSessionId.addMethod('GET', new apigateway.LambdaIntegration(getSessionLambda, { proxy: true }));
+
+    const joinSessionLambda = new NodejsFunction(this, 'join-session', {
+      runtime: Runtime.NODEJS_14_X,
+      entry: `${__dirname}/../src/sessions/index.ts`,
+      handler: 'joinSessionHandler',
+      bundling: {
+        minify: true,
+      },
+      environment: {
+        TABLE_NAME: sessionTable.tableName,
+      },
+    });
+
+    sessionTable.grantReadWriteData(getSessionLambda);
+    const withSessionIdAndUserId = withSessionId.addResource('{userId}');
+    withSessionIdAndUserId.addMethod('GET', new apigateway.LambdaIntegration(joinSessionLambda, { proxy: true }));
     //#endregion
   }
 }
