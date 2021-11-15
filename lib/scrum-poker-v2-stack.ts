@@ -90,9 +90,9 @@ export class ScrumPokerV2Stack extends cdk.Stack {
       },
     });
 
-    sessionTable.grantReadWriteData(getSessionLambda);
+    sessionTable.grantReadWriteData(joinSessionLambda);
     const withSessionIdAndUserId = withSessionId.addResource('{userId}');
-    withSessionIdAndUserId.addMethod('GET', new apigateway.LambdaIntegration(joinSessionLambda, { proxy: true }));
+    withSessionIdAndUserId.addMethod('POST', new apigateway.LambdaIntegration(joinSessionLambda, { proxy: true }));
     //#endregion
   }
 }
