@@ -22,10 +22,12 @@ export const helloHandler: ProxyHandler = async (event, context) => {
 };
 
 export const createSessionHandler: ProxyHandler = async (event) => {
-    if (!event.body) return { body: JSON.stringify({ error: '[validation error]: body required' }), statusCode: StatusCodes.BAD_REQUEST };
+    if (!event.body)
+        return { body: JSON.stringify({ error: '[validation error]: body required' }), statusCode: StatusCodes.BAD_REQUEST };
 
     const payload: { name: string, votingSystem: string } = JSON.parse(event.body);
-    if (!payload.name || !payload.votingSystem) return { body: JSON.stringify({ error: '[validation error]: name and votingSystem required' }), statusCode: StatusCodes.BAD_REQUEST };
+    if (!payload.name || !payload.votingSystem)
+        return { body: JSON.stringify({ error: '[validation error]: name and votingSystem required' }), statusCode: StatusCodes.BAD_REQUEST };
 
     const putItemInput: PutItemInput = {
         TableName: env.TABLE_NAME!,
@@ -77,7 +79,8 @@ export const getSessionHandler: ProxyHandler = async (event) => {
 };
 
 export const joinSessionHandler: ProxyHandler = async (event) => {
-    if (!event.pathParameters || !event.pathParameters['sessionId'] || !event.pathParameters['userId']) return { body: JSON.stringify({ error: '[validation error]: sessionId and userId required' }), statusCode: StatusCodes.BAD_REQUEST };
+    if (!event.pathParameters || !event.pathParameters['sessionId'] || !event.pathParameters['userId'])
+        return { body: JSON.stringify({ error: '[validation error]: sessionId and userId required' }), statusCode: StatusCodes.BAD_REQUEST };
 
     const sessionId = event.pathParameters['sessionId'];
     const userId = event.pathParameters['userId'];
@@ -93,9 +96,10 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
 
     try {
         const record = await dynamo.getItem(getItemInput).promise();
-        if (record.$response.data !== {} && record.Item) {
+        if (record.Item) {
             const isExists = record.Item.users.L?.find((user) => user && user.M && user.M.userId.S === userId);
-            if (isExists) return { body: JSON.stringify({ error: 'user already joined!' }), statusCode: StatusCodes.BAD_REQUEST };
+            if (isExists)
+                return { body: JSON.stringify({ error: 'user already joined!' }), statusCode: StatusCodes.BAD_REQUEST };
         }
     } catch (error) {
         console.log(`[sessions.joinSessionHandler] getItem error: `, error);
@@ -119,7 +123,8 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
                     {
                         M: {
                             userId: { S: userId },
-                            online: { BOOL: true }
+                            online: { BOOL: true },
+                            point: { N : '0' },
                         }
                     }
                 ]
@@ -136,10 +141,78 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
     }
 };
 
-export const updateStoryPoint: ProxyHandler = async (event) => {
+export const updateStoryPointHandler: ProxyHandler = async (event) => {
+    if (!event.pathParameters || !event.pathParameters['sessionId'] || !event.pathParameters['userId'])
+        return { body: JSON.stringify({ error: '[validation error]: sessionId and userId required' }), statusCode: StatusCodes.BAD_REQUEST };
+
+    if (!event.body)
+        return { body: JSON.stringify({ error: '[validation error]: body required' }), statusCode: StatusCodes.BAD_REQUEST };
+
+    const payload: { point: string } = JSON.parse(event.body);
+    if (!payload.point)
+        return { body: JSON.stringify({ error: '[validation error]: point required' }), statusCode: StatusCodes.BAD_REQUEST };
+
+    const sessionId = event.pathParameters['sessionId'];
+    const userId = event.pathParameters['userId'];
+    const { point } = payload;
+
+    const getItemInput = {
+        TableName: env.TABLE_NAME!,
+        Key: {
+            'guid': {
+                S: sessionId,
+            },
+        },
+    }
+
+    let index;
+    try {
+        const record = await dynamo.getItem(getItemInput).promise();
+        if (record.Item) {
+            const isExists = record.Item.users.L?.find((user) => user && user.M && user.M.userId.S === userId);
+            if (isExists) index = record.Item.users.L?.findIndex((user) => user && user.M && user.M.userId.S === userId);
+        }
+    } catch (error) {
+        console.log(`[sessions.updateStoryPointHandler] getItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
+    }
+
+    if (!index || index === -1) return { body: JSON.stringify({ error: 'user not found!' }), statusCode: StatusCodes.BAD_REQUEST };
+
+    const updateItemInput: UpdateItemInput = {
+        TableName: env.TABLE_NAME!,
+        Key: {
+            'guid': {
+                S: sessionId,
+            },
+        },
+        UpdateExpression: `SET #attrName[${index}].point = :attrValue`,
+        ExpressionAttributeNames: {
+            '#attrName': 'users'
+        },
+        ExpressionAttributeValues: {
+            ':attrValue': {
+                N: point
+            }
+        }
+    }
+
+    try {
+        await dynamo.updateItem(updateItemInput).promise();
+        return { body: JSON.stringify({ message: 'story point updated!' }), statusCode: StatusCodes.OK };
+    } catch (error) {
+        console.log(`[sessions.updateStoryPoint] putItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
+    }
+};
+
+export const startVotingHandler: ProxyHandler = async (event) => {
 
 
-    return {
+    return {};
+};
 
-    };
+export const showStoryPointsHandler: ProxyHandler = async (event) => {
+
+    return {};
 };
