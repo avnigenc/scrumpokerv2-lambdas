@@ -21,12 +21,10 @@ export const helloHandler: ProxyHandler = async (event, context) => {
     }
 };
 
-
 export const createSessionHandler: ProxyHandler = async (event) => {
     if (!event.body) return { body: JSON.stringify({ error: '[validation error]: body required' }), statusCode: StatusCodes.BAD_REQUEST };
-    const body = JSON.parse(event.body);
 
-    const payload: { name: string, votingSystem: string } = body;
+    const payload: { name: string, votingSystem: string } = JSON.parse(event.body);
     if (!payload.name || !payload.votingSystem) return { body: JSON.stringify({ error: '[validation error]: name and votingSystem required' }), statusCode: StatusCodes.BAD_REQUEST };
 
     const putItemInput: PutItemInput = {
@@ -52,7 +50,7 @@ export const createSessionHandler: ProxyHandler = async (event) => {
         return { body: JSON.stringify({ sessionId: putItemInput.Item['guid'].S }), statusCode: StatusCodes.OK };
     } catch (error) {
         console.log(`[sessions.createSessionHandler] putItem error: `, error);
-        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_GATEWAY };
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
     }
 };
 
@@ -74,9 +72,8 @@ export const getSessionHandler: ProxyHandler = async (event) => {
         return { body: JSON.stringify({ record: record?.$response.data }), statusCode: StatusCodes.OK };
     } catch (error) {
         console.log(`[sessions.getSessionHandler] getItem error: `, error);
-        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_GATEWAY };
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
     }
-
 };
 
 export const joinSessionHandler: ProxyHandler = async (event) => {
@@ -98,12 +95,11 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
         const record = await dynamo.getItem(getItemInput).promise();
         if (record.$response.data !== {} && record.Item) {
             const isExists = record.Item.users.L?.find((user) => user && user.M && user.M.userId.S === userId);
-            if (isExists) return { body: JSON.stringify({ error: 'user already joined!' }), statusCode: StatusCodes.BAD_GATEWAY };
+            if (isExists) return { body: JSON.stringify({ error: 'user already joined!' }), statusCode: StatusCodes.BAD_REQUEST };
         }
     } catch (error) {
-        console.log(`[sessions.getSessionHandler] getItem error: `, error);
-        // TODO: better error handling with class
-        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_GATEWAY };
+        console.log(`[sessions.joinSessionHandler] getItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
     }
 
     const updateItemInput: UpdateItemInput = {
@@ -133,10 +129,17 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
 
     try {
         await dynamo.updateItem(updateItemInput).promise();
+        return { body: JSON.stringify({ message: 'user joined!' }), statusCode: StatusCodes.OK };
     } catch (error) {
         console.log(`[sessions.joinSessionHandler] updateItem error: `, error);
-        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_GATEWAY };
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
     }
+};
 
-    return { body: JSON.stringify({ message: 'user joined!' }), statusCode: StatusCodes.OK };
+export const updateStoryPoint: ProxyHandler = async (event) => {
+
+
+    return {
+
+    };
 };
