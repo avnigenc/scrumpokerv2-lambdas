@@ -44,6 +44,9 @@ export const createSessionHandler: ProxyHandler = async (event) => {
             'users': {
                 L: [],
             },
+            'hide:': {
+                BOOL: true,
+            }
         },
     }
 
@@ -207,12 +210,87 @@ export const updateStoryPointHandler: ProxyHandler = async (event) => {
 };
 
 export const startVotingHandler: ProxyHandler = async (event) => {
+    if (!event.pathParameters || !event.pathParameters['sessionId'])
+        return { body: JSON.stringify({ error: '[validation error]: sessionId required' }), statusCode: StatusCodes.BAD_REQUEST };
 
+    const sessionId = event.pathParameters['sessionId'];
 
-    return {};
+    const getItemInput = {
+        TableName: env.TABLE_NAME!,
+        Key: {
+            'guid': {
+                S: sessionId,
+            },
+        },
+    };
+
+    let usersCount;
+    try {
+        const record = await dynamo.getItem(getItemInput).promise();
+        if (record.Item && record.Item.users.L && record.Item.users.L?.length > 0) usersCount = record.Item.users.L?.length;
+    } catch (error) {
+        console.log(`[sessions.startVotingHandler] getItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
+    }
+
+    if (!usersCount || usersCount === 0) return { body: JSON.stringify({ error: 'session empty!' }), statusCode: StatusCodes.BAD_REQUEST };
+
+    let updateExpressionQuery = 'SET ';
+    for (let i = 0; i < usersCount; i++) {
+        updateExpressionQuery += `#attrName[${i}].point = :attrValue, `;
+    }
+    updateExpressionQuery += '#hide = :hide';
+
+    const updateItemInput: UpdateItemInput = {
+        TableName: env.TABLE_NAME!,
+        Key: {
+            'guid': {
+                S: sessionId,
+            },
+        },
+        UpdateExpression: updateExpressionQuery,
+        ExpressionAttributeNames: {
+            '#attrName': 'users',
+            '#hide': 'hide',
+        },
+        ExpressionAttributeValues: {
+            ':attrValue': { N: '0' },
+            ':hide': { BOOL: true }
+        }
+    }
+
+    try {
+        await dynamo.updateItem(updateItemInput).promise();
+        return { body: JSON.stringify({ message: 'story points updated!' }), statusCode: StatusCodes.OK };
+    } catch (error) {
+        console.log(`[sessions.startVotingHandler] putItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
+    }
 };
 
 export const showStoryPointsHandler: ProxyHandler = async (event) => {
+    if (!event.pathParameters || !event.pathParameters['sessionId'])
+        return { body: JSON.stringify({ error: '[validation error]: sessionId required' }), statusCode: StatusCodes.BAD_REQUEST };
 
-    return {};
+    const sessionId = event.pathParameters['sessionId'];
+
+    const updateItemInput: UpdateItemInput = {
+        TableName: env.TABLE_NAME!,
+        Key: {
+            'guid': {
+                S: sessionId,
+            },
+        },
+        UpdateExpression: 'SET #attrName = :attrValue',
+        ExpressionAttributeNames: { '#attrName': 'hide' },
+        ExpressionAttributeValues: { ':attrValue': { BOOL: false } }
+    };
+
+    try {
+        await dynamo.updateItem(updateItemInput).promise();
+        return { body: JSON.stringify({ message: 'session updated!' }), statusCode: StatusCodes.OK };
+    } catch (error) {
+        console.log(`[sessions.showStoryPointsHandler] updateItem error: `, error);
+        return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
+    }
 };

@@ -110,6 +110,38 @@ export class ScrumPokerV2Stack extends cdk.Stack {
     sessionTable.grantReadWriteData(updateStoryPointLambda);
     withSessionIdAndUserId.addMethod('PUT', new apigateway.LambdaIntegration(updateStoryPointLambda, { proxy: true }));
 
+    const startVotingLambda = new NodejsFunction(this, 'start-voting', {
+      runtime: Runtime.NODEJS_14_X,
+      entry: `${__dirname}/../src/sessions/index.ts`,
+      handler: 'startVotingHandler',
+      bundling: {
+        minify: true,
+      },
+      environment: {
+        TABLE_NAME: sessionTable.tableName,
+      },
+    });
+
+    sessionTable.grantReadWriteData(startVotingLambda);
+    const start = withSessionId.addResource('start');
+    start.addMethod('PUT', new apigateway.LambdaIntegration(startVotingLambda, { proxy: true }));
+
+    const showStoryPointsLambda = new NodejsFunction(this, 'show-story-points', {
+      runtime: Runtime.NODEJS_14_X,
+      entry: `${__dirname}/../src/sessions/index.ts`,
+      handler: 'showStoryPointsHandler',
+      bundling: {
+        minify: true,
+      },
+      environment: {
+        TABLE_NAME: sessionTable.tableName,
+      },
+    });
+
+    sessionTable.grantReadWriteData(showStoryPointsLambda);
+    const show = withSessionId.addResource('show');
+    show.addMethod('PUT', new apigateway.LambdaIntegration(showStoryPointsLambda, { proxy: true }));
+
     //#endregion
   }
 }
