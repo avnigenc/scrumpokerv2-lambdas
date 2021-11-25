@@ -8,6 +8,7 @@ export class ScrumPokerV2Stack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+
     const api = new apigateway.RestApi(this, 'api', {
       description: 'ScrumPokerV2 with lambda functions',
       deployOptions: {
@@ -33,8 +34,8 @@ export class ScrumPokerV2Stack extends cdk.Stack {
       handler: 'helloHandler',
       bundling: {
         minify: true,
-      }
-    })
+      },
+    });
 
     const index = api.root.addResource('health');
     index.addMethod('GET', new apigateway.LambdaIntegration(getIndexLambda, { proxy: true }));
@@ -56,7 +57,7 @@ export class ScrumPokerV2Stack extends cdk.Stack {
       },
       environment: {
         TABLE_NAME: sessionTable.tableName,
-      }
+      },
     });
 
     sessionTable.grantReadWriteData(createSessionLambda);
@@ -110,7 +111,7 @@ export class ScrumPokerV2Stack extends cdk.Stack {
     sessionTable.grantReadWriteData(updateStoryPointLambda);
     withSessionIdAndUserId.addMethod('PUT', new apigateway.LambdaIntegration(updateStoryPointLambda, { proxy: true }));
 
-    const startVotingLambda = new NodejsFunction(this, 'start-voting', {
+    const resetVotingLambda = new NodejsFunction(this, 'start-voting', {
       runtime: Runtime.NODEJS_14_X,
       entry: `${__dirname}/../src/sessions/index.ts`,
       handler: 'startVotingHandler',
@@ -122,9 +123,9 @@ export class ScrumPokerV2Stack extends cdk.Stack {
       },
     });
 
-    sessionTable.grantReadWriteData(startVotingLambda);
-    const start = withSessionId.addResource('start');
-    start.addMethod('PUT', new apigateway.LambdaIntegration(startVotingLambda, { proxy: true }));
+    sessionTable.grantReadWriteData(resetVotingLambda);
+    const start = withSessionId.addResource('reset');
+    start.addMethod('PUT', new apigateway.LambdaIntegration(resetVotingLambda, { proxy: true }));
 
     const showStoryPointsLambda = new NodejsFunction(this, 'show-story-points', {
       runtime: Runtime.NODEJS_14_X,

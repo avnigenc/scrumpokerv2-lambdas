@@ -50,7 +50,7 @@ export const createSessionHandler: ProxyHandler = async (event) => {
       'users': {
         L: [],
       },
-      'hide:': {
+      'hide': {
         BOOL: true,
       },
     },
@@ -212,7 +212,7 @@ export const updateStoryPointHandler: ProxyHandler = async (event) => {
   let index;
   try {
     const record = await dynamo.getItem(getItemInput).promise();
-    if (record.Item) {
+    if (record && record.Item && record.Item.users.L && record.Item.users.L.length) {
       const isExists = record.Item.users.L?.find((user) => user && user.M && user.M.userId.S === userId);
       if (isExists) index = record.Item.users.L?.findIndex((user) => user && user.M && user.M.userId.S === userId);
     }
@@ -221,10 +221,12 @@ export const updateStoryPointHandler: ProxyHandler = async (event) => {
     return { body: JSON.stringify({ error: 'dberror!' }), statusCode: StatusCodes.BAD_REQUEST };
   }
 
-  if (!index || index === -1) return {
-    body: JSON.stringify({ error: 'user not found!' }),
-    statusCode: StatusCodes.BAD_REQUEST,
-  };
+  if (index === -1) {
+    return {
+      body: JSON.stringify({ error: 'user not found!' }),
+      statusCode: StatusCodes.BAD_REQUEST,
+    };
+  }
 
   const updateItemInput: UpdateItemInput = {
     TableName: env.TABLE_NAME!,
