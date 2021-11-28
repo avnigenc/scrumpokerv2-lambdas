@@ -128,12 +128,16 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
     },
   };
 
+  let sessionOwner = false;
+
   try {
     const record = await dynamo.getItem(getItemInput).promise();
     if (record.Item) {
       const isExists = record.Item.users.L?.find((user) => user && user.M && user.M.userId.S === userId);
       if (isExists)
         return { body: JSON.stringify({ error: 'user already joined!' }), statusCode: StatusCodes.BAD_REQUEST };
+      if (record.Item.users.L?.length === 0) sessionOwner = true;
+
     }
   } catch (error) {
     console.log(`[sessions.joinSessionHandler] getItem error: `, error);
@@ -160,6 +164,7 @@ export const joinSessionHandler: ProxyHandler = async (event) => {
               online: { BOOL: true },
               name: { S: name },
               point: { N: '0' },
+              sessionOwner: { BOOL: sessionOwner },
             },
           },
         ],
